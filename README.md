@@ -1,99 +1,112 @@
 # Distributed Large-File Ingestion Pipeline
 
-This repository explores a distributed ingestion pattern for processing large files that exceed normal browser upload limits, synchronous API limits, or single-process execution limits.
+## Overview
+
+This repository contains an initial Python prototype for a distributed large-file ingestion pipeline.
+
+The prototype focuses on the core state-management concepts behind asynchronous ingestion: parent upload tracking, chunk-level status tracking, queue message modeling, worker-style processing, status aggregation, and retry-aware data structures.
+
+It is intentionally small and uses only the Python standard library, with `pytest` for tests. The goal is to demonstrate clean modeling and testable orchestration patterns, not to present a production-ready ingestion platform.
 
 ## Problem
 
-Enterprise data files can be large, inconsistent, and expensive to process.
+Large files can be difficult to process reliably through a single synchronous request. Upload size limits, timeouts, partial failures, retry behavior, and long-running backend work all create operational risk.
 
-A simple browser upload or synchronous API call may fail because of file size limits, timeout constraints, unreliable network conditions, or long-running backend processing.
+A distributed ingestion workflow typically needs to:
 
-Reliable ingestion requires asynchronous orchestration, object storage, chunk-level processing, state tracking, validation, retry-aware execution, and observability.
+- Track the overall parent upload lifecycle.
+- Split work into independently processed chunks.
+- Send chunk work through a queue or queue-like contract.
+- Process chunks with background workers.
+- Track per-chunk success, failure, and retry state.
+- Aggregate chunk statuses back into a parent-level status.
+- Preserve enough state to support retries, debugging, and future observability.
 
-## Approach
+## Current Prototype
 
-The system is designed as a queue-based distributed ingestion workflow.
+The current implementation is a local, testable simulation of the core ingestion flow.
 
-Large files are uploaded to object storage, registered in a tracking system, split or processed in chunks, and handled by background workers. Each step updates state so the overall workflow can be monitored, retried, debugged, and completed safely.
+It includes:
 
-## High-Level Workflow
+- `ParentUpload` and `UploadStatus` models for parent-level upload tracking.
+- `FileChunk` and `ChunkStatus` models for chunk-level processing state.
+- `ChunkProcessingMessage` for queue message modeling.
+- `ChunkWorker` for simulated chunk processing.
+- `StatusAggregator` for deriving parent upload status from chunk statuses.
+- A simple `src.main` script that creates a parent upload, processes three chunks, aggregates final status, and prints the result.
+- Pytest coverage for the status aggregation rules.
 
-1. Register the file upload
-2. Upload the raw file to object storage
-3. Create parent-level tracking metadata
-4. Create chunk-level processing metadata
-5. Send processing messages to a queue
-6. Process chunks using worker jobs
-7. Track status at parent and chunk levels
-8. Run validation and finalization steps
-9. Synchronize status for external consumers
-10. Capture logs and operational signals for debugging
+This prototype does not connect to cloud storage, external queues, databases, or production monitoring systems. Those integrations are intentionally left as future extensions.
 
-## Core Concepts
+## Folder Structure
 
-### Parent Upload
+```text
+src/
+  __init__.py
+  main.py
+  models/
+    __init__.py
+    upload_state.py
+    chunk_state.py
+    queue_message.py
+  worker/
+    __init__.py
+    chunk_worker.py
+  orchestration/
+    __init__.py
+    status_aggregator.py
+tests/
+  test_status_aggregation.py
+requirements.txt
+```
 
-Represents the full source file and overall ingestion lifecycle.
+## How to Run
 
-### Chunk Processing
+Create a virtual environment:
 
-Represents smaller processing units that can be executed independently, retried, monitored, and aggregated.
+```bash
+python -m venv .venv
+```
 
-### Queue-Based Orchestration
+Install dependencies:
 
-Decouples upload, processing, validation, and finalization so long-running work does not block the user interface or API layer.
+```bash
+pip install -r requirements.txt
+```
 
-### Worker Execution
+Run the sample ingestion simulation:
 
-Processes ingestion tasks asynchronously using background workers or containerized jobs.
+```bash
+python -m src.main
+```
 
-### State Tracking
+Expected output shows each processed chunk status followed by the aggregated parent upload status.
 
-Tracks parent and chunk statuses such as pending, in progress, successful, partially successful, failed, or finalizing.
+## Tests
 
-### Validation
+Run the test suite:
 
-Ensures processed data meets required expectations before being marked complete.
+```bash
+pytest
+```
 
-### Observability
+The tests validate the parent status aggregation rules:
 
-Captures logs, metrics, and status transitions to support debugging and operational handoff.
+- All successful chunks produce a successful parent upload.
+- Mixed successful and failed chunks produce a partially successful parent upload.
+- Pending or in-progress chunks produce an in-progress parent upload.
+- All failed chunks produce a failed parent upload.
 
-## Why This Matters
+## Future Extensions
 
-Large-scale AI and analytics systems require robust data ingestion infrastructure.
+Possible next steps include:
 
-Before data can be used for dashboards, LLM workflows, model evaluation, training pipelines, or downstream analytics, it must first be ingested reliably.
-
-This project focuses on reliability, resumability, observability, and operational control in distributed data-processing pipelines.
-
-## Planned Components
-
-* Python worker prototype
-* Queue message contract
-* Parent upload state model
-* Chunk state model
-* Local simulation mode
-* Retry-aware processing
-* Validation hooks
-* Status aggregation
-* Logging and observability patterns
-* Cloud-ready design notes
-
-## Possible Future Extensions
-
-* Azure Blob Storage implementation
-* Azure Queue or Service Bus implementation
-* Container Apps worker execution
-* Snowflake or database loading simulation
-* Dead-letter queue handling
-* Failure injection tests
-* Dashboard for upload and chunk status
-* OpenTelemetry-based tracing
-* Load and concurrency testing
-
-## Status
-
-Initial portfolio prototype.
-
-This repository is intended to demonstrate distributed systems thinking, data infrastructure design, asynchronous processing, reliability engineering, and cloud-ready architecture patterns.
+- Add local file chunking and manifest generation.
+- Simulate retry limits and dead-letter queue behavior.
+- Persist parent and chunk state in a lightweight database.
+- Add structured logging around worker processing.
+- Add failure injection tests for retry and partial completion scenarios.
+- Introduce a queue adapter interface for local and cloud-backed implementations.
+- Add object storage integration behind a storage abstraction.
+- Expand validation and finalization hooks after chunk processing.
+- Add basic operational metrics for ingestion progress and failure rates.
