@@ -8,6 +8,14 @@ The prototype focuses on the core state-management concepts behind asynchronous 
 
 It is intentionally small and uses only the Python standard library, with `pytest` for tests. The goal is to demonstrate clean modeling and testable orchestration patterns, not to present a production-ready ingestion platform.
 
+
+## Technical Write-Up
+
+For the design thinking behind this prototype, see:
+
+[Designing Reliable Distributed File Ingestion for AI and Analytics Systems](./ARTICLE.md)
+
+
 ## Problem
 
 Large files can be difficult to process reliably through a single synchronous request. Upload size limits, timeouts, partial failures, retry behavior, and long-running backend work all create operational risk.
